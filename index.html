@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viaja Seguro Junto Oroya</title>
+    
+    <!-- CSS de Leaflet (Mapas Interactivos Libres) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- FontAwesome para Íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Estilos de la App -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="app-layout">
+        <!-- Panel Izquierdo: Interfaz Móvil y Paneles -->
+        <div class="sidebar">
+            <header class="app-header">
+                <div class="brand">
+                    <i class="fa-solid fa-taxi logo-icon"></i>
+                    <h2>Viaja Seguro <span> Oroya</span></h2>
+                </div>
+                <div id="userInfoHeader" class="user-info-header" style="display: none;">
+                    <span id="userRoleBadge" class="badge">Role</span>
+                    <button class="btn-logout" onclick="logout()"><i class="fa-solid fa-power-off"></i></button>
+                </div>
+            </header>
+
+            <main class="app-content">
+
+                <!-- 1. LOGIN PRINCIPAL (JEFE, CONDUCTOR, PASAJERO) -->
+                <section id="screen-login" class="screen active">
+                    <div class="card">
+                        <h3><i class="fa-solid fa-right-to-bracket"></i> Acceso al Sistema</h3>
+                        <p class="subtitle">Selecciona tu tipo de cuenta o inicia sesión.</p>
+                        
+                        <div class="auth-tabs">
+                            <button class="tab-btn active" onclick="switchLoginTab('passenger')">Pasajero</button>
+                            <button class="tab-btn" onclick="switchLoginTab('staff')">Conductor / Jefe</button>
+                        </div>
+
+                        <!-- Formulario Pasajero -->
+                        <form id="form-login-passenger" onsubmit="handlePassengerLogin(event)">
+                            <div class="form-group">
+                                <label>Nombre Completo</label>
+                                <input type="text" id="passengerName" placeholder="Ej. Rody Jossue" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Celular</label>
+                                <input type="tel" id="passengerPhone" placeholder="Ej. 987654321" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Ingresar como Pasajero</button>
+                        </form>
+
+                        <!-- Formulario Conductor / Jefe -->
+                        <form id="form-login-staff" onsubmit="handleStaffLogin(event)" style="display: none;">
+                            <div class="form-group">
+                                <label>Correo Electrónico</label>
+                                <input type="email" id="staffEmail" placeholder="correo@distritogo.pe" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Contraseña</label>
+                                <input type="password" id="staffPassword" placeholder="••••••••" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Iniciar Sesión</button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- 2. PANEL DEL JEFE / ADMIN -->
+                <section id="screen-admin" class="screen">
+                    <div class="card">
+                        <h3><i class="fa-solid fa-user-shield"></i> Panel de Administración</h3>
+                        <p class="subtitle">Gestión de flota, registro de choferes y parámetros.</p>
+                        
+                        <div class="admin-actions">
+                            <button class="btn btn-secondary" onclick="showAddDriverModal()">
+                                <i class="fa-solid fa-user-plus"></i> Añadir Nuevo Chofer
+                            </button>
+                        </div>
+
+                        <h4 class="section-subtitle">Conductores Registrados</h4>
+                        <div id="adminDriversList" class="drivers-admin-list">
+                            <!-- Se renderiza dinámicamente -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. PANEL DEL CONDUCTOR -->
+                <section id="screen-driver-dashboard" class="screen">
+                    <div class="card">
+                        <div class="driver-header-profile">
+                            <div class="driver-avatar"><i class="fa-solid fa-id-badge"></i></div>
+                            <div>
+                                <h3 id="driverProfileName">Nombre Conductor</h3>
+                                <div class="driver-rating-badge" id="driverProfileRating">⭐ 5.0 (0 viajes)</div>
+                            </div>
+                        </div>
+
+                        <!-- Notificaciones de Viajes Entrantes -->
+                        <div class="notification-box">
+                            <h4><i class="fa-solid fa-bell"></i> Solicitudes en Tiempo Real</h4>
+                            <div id="driverNotificationsList">
+                                <p class="empty-state">No hay solicitudes pendientes en el distrito.</p>
+                            </div>
+                        </div>
+
+                        <!-- Comentarios y Reseñas de Clientes -->
+                        <div class="reviews-box">
+                            <h4><i class="fa-solid fa-comments"></i> Comentarios de Clientes</h4>
+                            <div id="driverReviewsList" class="reviews-list">
+                                <!-- Se renderiza dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. PANEL DE PASAJERO: RUTA Y SELECCIÓN DE CHOFER -->
+                <section id="screen-passenger-trip" class="screen">
+                    <div class="card">
+                        <h3><i class="fa-solid fa-route"></i> Planifica tu Viaje</h3>
+                        
+                        <div class="form-group">
+                            <label>Origen</label>
+                            <select id="selectOrigin" onchange="updateTripSimulation()">
+                                <option value="plaza">Plaza Principal del Distrito</option>
+                                <option value="mercado">Mercado Central</option>
+                                <option value="estacion">Estación / Terminal Distrital</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Destino</label>
+                            <select id="selectDestination" onchange="updateTripSimulation()">
+                                <option value="hospital">Hospital Distrital</option>
+                                <option value="alamos">Av. Los Álamos Mz. B</option>
+                                <option value="industrial">Zona Industrial</option>
+                            </select>
+                        </div>
+
+                        <label class="section-label">Choferes Disponibles en la Zona</label>
+                        <div id="passengerDriversList" class="drivers-container">
+                            <!-- Lista con fotos, estrellas y botón para elegir -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5. PASAJERO: ESTADO DEL VIAJE Y CALIFICACIÓN -->
+                <section id="screen-trip-status" class="screen">
+                    <div class="card">
+                        <div class="status-header">
+                            <span class="status-badge" id="tripStatusBadge">Chofer Asignado...</span>
+                        </div>
+
+                        <div id="activeDriverCard" class="driver-profile-card">
+                            <!-- Datos del Chofer Elegido -->
+                        </div>
+
+                        <!-- Formulario de Calificación (Al finalizar viaje) -->
+                        <div id="ratingSection" class="rating-box" style="display: none;">
+                            <h4><i class="fa-solid fa-star"></i> Califica a tu Conductor</h4>
+                            <div class="star-rating">
+                                <span onclick="setRating(1)">★</span>
+                                <span onclick="setRating(2)">★</span>
+                                <span onclick="setRating(3)">★</span>
+                                <span onclick="setRating(4)">★</span>
+                                <span onclick="setRating(5)">★</span>
+                            </div>
+                            <textarea id="tripComment" placeholder="Escribe un comentario sobre el servicio..."></textarea>
+                            <button class="btn btn-primary btn-block" onclick="submitRating()">Enviar Calificación</button>
+                        </div>
+
+                        <button id="btnCancelTrip" class="btn btn-danger btn-block" onclick="cancelTrip()">Cancelar Viaje</button>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- Panel Derecho: Mapa Interactivo Leaflet -->
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Modales para Administrador (Añadir/Editar Chofer) -->
+    <div id="driverModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modalTitle">Añadir Conductor</h3>
+            <form id="driverForm" onsubmit="handleSaveDriver(event)">
+                <input type="hidden" id="driverId">
+                <div class="form-group">
+                    <label>Nombre Completo</label>
+                    <input type="text" id="modalDriverName" required>
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico (Login)</label>
+                    <input type="email" id="modalDriverEmail" required>
+                </div>
+                <div class="form-group">
+                    <label>Vehículo / Modelo</label>
+                    <input type="text" id="modalDriverVehicle" placeholder="Ej. Bajaj Mototaxi VIP" required>
+                </div>
+                <div class="form-group">
+                    <label>Placa del Vehículo</label>
+                    <input type="text" id="modalDriverPlate" placeholder="Ej. 4582-3F" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeDriverModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts del Proyecto -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="auth.js"></script>
+    <script src="admin.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
